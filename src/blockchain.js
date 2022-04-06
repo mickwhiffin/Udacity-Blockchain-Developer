@@ -66,27 +66,26 @@ class Blockchain {
         return new Promise(async (resolve, reject) => {
             let newBlock = block;
             let height = await self.getChainHeight();
-            newBlock.time = new Date().getTime().toString().slice(0,-3);
-
+            
             if(height >= 0){
-                newBlock.height = height + 1;
                 let previousBlock = self.chain[self.height];
                 newBlock.previousBlockHash = previousBlock.hash;
+            }
 
-                newBlock.hash = SHA256(JSON.stringify(newBlock)).toString();
+            newBlock.time = new Date().getTime().toString().slice(0,-3);
+            newBlock.height = height + 1;
+            newBlock.hash = SHA256(JSON.stringify(newBlock)).toString();
+
+            let chainIsValid = await self.validateChain();
+
+            if (chainIsValid) {
                 self.chain.push(newBlock);
                 self.height = self.chain.length - 1;
-
                 resolve(newBlock);
             } else {
-                newBlock.height = height + 1;
+                reject('Blockchain invalid');
+            }           
 
-                newBlock.hash = SHA256(JSON.stringify(newBlock)).toString();
-                self.chain.push(newBlock);
-                self.height = self.chain.length - 1;
-
-                resolve(newBlock);
-            }
         });
     }
 
@@ -126,9 +125,10 @@ class Blockchain {
         let self = this;
         return new Promise(async (resolve, reject) => {
             let time = parseInt(message.split(':')[1]);
+            console.log();
             let currentTime = parseInt(new Date().getTime().toString().slice(0, -3));
             // if submitted within 5 mins
-            if ((currentTime-time) <= 300000) {
+            if ((currentTime-time) <= 300) {
                 // verify signature
                 let isVerified = bitcoinMessage.verify(message, address, signature);
                 if(isVerified) {
@@ -154,7 +154,7 @@ class Blockchain {
     getBlockByHash(hash) {
         let self = this;
         return new Promise((resolve, reject) => {
-            let block = self.chain.filter(p => p.hash === hash)[0];
+            let block = self.chain.find(b => b.hash === hash);
             if(block){
                 resolve(block);
             } else {
@@ -191,12 +191,17 @@ class Blockchain {
         let stars = [];
         return new Promise((resolve, reject) => {
             self.chain.forEach(async (block) => {
-                let data = await block.getBData();
-                if(data){
-                    if (data.owner === address){
-                        stars.push(data);
+                try {
+                    let data = await block.getBData();
+                    if(data){
+                        if (data.owner === address){
+                            stars.push(data);
+                        }
                     }
+                } catch(e) {
+                    console.log(e);
                 }
+
             });
             resolve(stars);
         });
@@ -218,7 +223,7 @@ class Blockchain {
                 promises.push(block.validate());
                 if(block.height > 0) {
                     let previousBlockHash = block.previousBlockHash;
-                    let blockHash = chain[chainIndex-1].hash;
+                    let blockHash = self.chain[chainIndex-1].hash;
                     if(blockHash != previousBlockHash){
                         errorLog.push(`Error - Block Height is ${block.height} - The Previous Hash does't match.`);
                     }

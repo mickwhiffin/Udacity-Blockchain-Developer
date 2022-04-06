@@ -16,6 +16,7 @@ class BlockchainController {
         this.submitStar();
         this.getBlockByHash();
         this.getStarsByOwner();
+        this.validateChain();
     }
 
     // Enpoint to Get a Block by Height (GET Endpoint)
@@ -53,6 +54,18 @@ class BlockchainController {
             }
         });
     }
+
+    // Endpoint that allows user to validate the chain
+    validateChain() {
+        this.app.get("/validateChain", async (req, res) => {
+            const validationErrors = await this.blockchain.validateChain();
+            if(validationErrors.length === 0){
+                return res.status(200).send("Chain is valid!");
+            } else {
+                return res.status(500).send("Chain is invalid!");
+            }
+        });
+    }    
 
     // Endpoint that allow Submit a Star, yu need first to `requestOwnership` to have the message (POST endpoint)
     submitStar() {
